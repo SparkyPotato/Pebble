@@ -10,6 +10,8 @@ Swapchain::Swapchain(GLFWwindow* target)
 	glfwSetFramebufferSizeCallback(target, &FramebufferResizeCallback);
 
 	Recreate();
+
+	TRACE("Created swapchain");
 }
 
 void Swapchain::SetPreResizeCallback(std::function<void(u32, u32)> callback) { m_PreResizeCallback = callback; }
@@ -177,8 +179,6 @@ void Swapchain::Recreate()
 
 	VkCall(vkCreateSwapchainKHR(Instance::Device(), &info, nullptr, &m_Swapchain));
 	vkDestroySwapchainKHR(Instance::Device(), oldSwapchain, nullptr);
-
-	TRACE("Created swapchain");
 }
 
 void Swapchain::FramebufferResizeCallback(GLFWwindow* window, int width, int height)

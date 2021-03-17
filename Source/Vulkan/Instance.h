@@ -16,7 +16,6 @@ VkPhysicalDevice PhysicalDevice();
 VmaAllocator Allocator();
 
 u32 GraphicsIndex();
-u32 TransferIndex();
 
 extern bool IsInitialized;
 

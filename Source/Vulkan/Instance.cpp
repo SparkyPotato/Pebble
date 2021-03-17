@@ -24,8 +24,6 @@ VkDebugUtilsMessengerEXT s_DebugMessenger = VK_NULL_HANDLE;
 
 VkQueue s_GraphicsQueue = VK_NULL_HANDLE;
 u32 s_GraphicsQueueIndex;
-VkQueue s_TransferQueue = VK_NULL_HANDLE;
-u32 s_TransferQueueIndex;
 
 template<typename Func, typename... Args>
 auto LoadAndCall(const char* name, const Args&... args)
@@ -172,12 +170,11 @@ void SetupDebugCallback()
 struct QueueFamilyIndices
 {
 	std::optional<u32> Graphics;
-	std::optional<u32> Transfer;
 
-	bool IsComplete() { return Graphics.has_value() && Transfer.has_value(); }
+	bool IsComplete() { return Graphics.has_value(); }
 
 	std::optional<u32>* begin() { return &Graphics; }
-	std::optional<u32>* end() { return &Graphics + 2; }
+	std::optional<u32>* end() { return &Graphics + 1; }
 };
 
 QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device)
@@ -193,10 +190,6 @@ QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device)
 		if (family.queueFlags & VK_QUEUE_GRAPHICS_BIT)
 		{
 			indices.Graphics = i;
-		}
-		else if (family.queueFlags & VK_QUEUE_TRANSFER_BIT)
-		{
-			indices.Transfer = i;
 		}
 
 		if (indices.IsComplete())
@@ -288,8 +281,6 @@ void CreateDevice(VkPhysicalDevice phyDevice)
 
 	vkGetDeviceQueue(s_Device, families.Graphics.value(), 0, &s_GraphicsQueue);
 	s_GraphicsQueueIndex = families.Graphics.value();
-	vkGetDeviceQueue(s_Device, families.Transfer.value(), 0, &s_TransferQueue);
-	s_TransferQueueIndex = families.Transfer.value();
 
 	VmaVulkanFunctions vkFuncs{
 		.vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties,
@@ -341,6 +332,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBits
 	case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
 		ERROR("Vulkan: {}", callback->pMessage);
 		break;
+	default: break;
 	}
 
 	return VK_FALSE;
@@ -355,8 +347,6 @@ VkPhysicalDevice PhysicalDevice() { return s_PhysicalDevice; }
 VmaAllocator Allocator() { return s_Allocator; }
 
 u32 GraphicsIndex() { return s_GraphicsQueueIndex; }
-
-u32 TransferIndex() { return s_TransferQueueIndex; }
 
 }
 

@@ -9,6 +9,6 @@ void App::Run()
 {
 	while (!m_MainWindow.ShouldClose())
 	{
-		
+		Window::PollEvents();
 	}
 }

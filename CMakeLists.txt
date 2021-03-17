@@ -30,13 +30,16 @@ add_subdirectory(External/spdlog)
 add_subdirectory(External/volk)
 add_subdirectory(External/Vulkan-Headers)
 
+set_target_properties(volk PROPERTIES COMPILE_DEFINITIONS VOLK_VULKAN_H_PATH="vulkan/vulkan.h")
+target_link_libraries(volk PUBLIC Vulkan::Headers)
+
 file(GLOB_RECURSE SOURCE CONFIGURE_DEPENDS 
 	${CMAKE_CURRENT_SOURCE_DIR}/Source/*.h
 	${CMAKE_CURRENT_SOURCE_DIR}/Source/*.cpp
 )
 add_executable(Pebble ${SOURCE})
 
-target_include_directories(Pebble PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source External/glm External/ViennaJobSystem/include External/VMA/src)
+target_include_directories(Pebble PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source External/glm External/VMA/src)
 
 target_precompile_headers(Pebble PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source/PCH.h)
 
@@ -44,4 +47,4 @@ target_compile_features(Pebble PRIVATE cxx_std_20)
 set_target_properties(Pebble PROPERTIES CXX_EXTENSIONS OFF)
 
 find_package(Threads REQUIRED)
-target_link_libraries(Pebble PRIVATE Threads::Threads Vulkan::Headers glfw glm spdlog::spdlog volk::volk)
+target_link_libraries(Pebble PRIVATE Threads::Threads glfw glm spdlog volk)
