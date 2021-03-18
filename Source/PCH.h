@@ -2,11 +2,14 @@
 #include <cstdint>
 #include <cstring>
 
+#include <algorithm>
 #include <any>
 #include <atomic>
 #include <bitset>
 #include <chrono>
 #include <functional>
+#include <memory>
+#include <memory_resource>
 #include <optional>
 #include <span>
 #include <string>
@@ -29,3 +32,5 @@ using u64 = uint64_t;
 
 using f32 = float;
 using f64 = double;
+
+static_assert(sizeof(uintptr_t) == 8, "Pebble only supports 64-bit compilers on 64-bit systems");
