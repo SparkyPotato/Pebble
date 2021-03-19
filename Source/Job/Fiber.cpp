@@ -82,7 +82,12 @@ __declspec(allocate(".text")) static u8 SetContextCode[] = {
 
 #else
 
-__attribute__((section(".text#"))) static u8 SwapContextCode[] = {
+#ifdef __APPLE__
+__attribute__((section("fibers,.text"))) 
+#else
+__attribute__((section(".text#"))) 
+#endif
+static u8 SwapContextCode[] = {
 	0x4c, 0x8b, 0x04, 0x24,		  //
 	0x4c, 0x89, 0x07,			  //
 	0x4c, 0x8d, 0x44, 0x24, 0x08, //
@@ -106,7 +111,12 @@ __attribute__((section(".text#"))) static u8 SwapContextCode[] = {
 	0xc3						  //
 };
 
-__attribute__((section(".text#"))) static u8 SetContextCode[] = {
+#ifdef __APPLE__
+__attribute__((section("fibers,.text"))) 
+#else
+__attribute__((section(".text#"))) 
+#endif
+static u8 SetContextCode[] = {
 	0x4c, 0x8b, 0x07,			  //
 	0x48, 0x8b, 0x67, 0x08,		  //
 	0x48, 0x8b, 0x5f, 0x10,		  //

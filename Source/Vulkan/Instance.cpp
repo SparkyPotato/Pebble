@@ -97,7 +97,6 @@ static std::vector<const char*> GetInstanceLayers()
 		{
 			s_ValidationEnabled = true;
 			layers.push_back("VK_LAYER_KHRONOS_validation");
-			DEBUG("Validation layer enabled");
 		}
 #endif
 	}
@@ -107,6 +106,10 @@ static std::vector<const char*> GetInstanceLayers()
 	{
 		WARN("Validation layer not supported by this implementation, will not get any validation messages. You might "
 			 "need to install the Vulkan SDK.");
+	}
+	else
+	{
+		DEBUG("Validation layer enabled");
 	}
 #endif
 
@@ -133,7 +136,7 @@ static void CreateInstance(const std::vector<const char*>& layers, const std::ve
 		.applicationVersion = VK_MAKE_VERSION(0, 0, 1),
 		.pEngineName = "Pebble",
 		.engineVersion = VK_MAKE_VERSION(0, 0, 1),
-		.apiVersion = VK_API_VERSION_1_0 };
+		.apiVersion = VK_API_VERSION_1_1 };
 
 	VkInstanceCreateInfo info{ .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		.pNext = nullptr,
@@ -244,7 +247,23 @@ VkPhysicalDevice PickPhysicalDevice()
 	}
 }
 
-std::vector<const char*> GetDeviceExtensions() { return { VK_KHR_SWAPCHAIN_EXTENSION_NAME }; }
+std::vector<const char*> GetDeviceExtensions(VkPhysicalDevice device)
+{
+	u32 count;
+	VkCall(vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr));
+	std::vector<VkExtensionProperties> properties(count);
+	VkCall(vkEnumerateDeviceExtensionProperties(device, nullptr, &count, properties.data()));
+
+	for (const auto& extension : properties)
+	{
+		if (strcmp(extension.extensionName, "VK_KHR_portability_subset") == 0)
+		{
+			return { "VK_KHR_portability_subset", VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+		}
+	}
+
+	return { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+}
 
 void CreateDevice(VkPhysicalDevice phyDevice)
 {
@@ -262,7 +281,7 @@ void CreateDevice(VkPhysicalDevice phyDevice)
 		queues.emplace_back(info);
 	}
 
-	auto extensions = GetDeviceExtensions();
+	auto extensions = GetDeviceExtensions(phyDevice);
 	auto layers = GetInstanceLayers();
 
 	VkPhysicalDeviceFeatures features{};
@@ -351,6 +370,7 @@ u32 GraphicsIndex() { return s_GraphicsQueueIndex; }
 
 }
 
+// Thank you Sascha Willems
 static const char* ResultToString(VkResult result)
 {
 	switch (result)

@@ -9,7 +9,6 @@
 #include <chrono>
 #include <functional>
 #include <memory>
-#include <memory_resource>
 #include <optional>
 #include <span>
 #include <string>
