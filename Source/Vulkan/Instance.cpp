@@ -68,7 +68,9 @@ void Cleanup()
 
 	vmaDestroyAllocator(s_Allocator);
 	vkDestroyDevice(s_Device, nullptr);
+#ifndef NDEBUG
 	VkLoad(vkDestroyDebugUtilsMessengerEXT, s_DebugMessenger, nullptr);
+#endif
 	vkDestroyInstance(s_Instance, nullptr);
 	s_Instance = nullptr;
 }
@@ -282,8 +284,7 @@ void CreateDevice(VkPhysicalDevice phyDevice)
 	vkGetDeviceQueue(s_Device, families.Graphics.value(), 0, &s_GraphicsQueue);
 	s_GraphicsQueueIndex = families.Graphics.value();
 
-	VmaVulkanFunctions vkFuncs{
-		.vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties,
+	VmaVulkanFunctions vkFuncs{ .vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties,
 		.vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties,
 		.vkAllocateMemory = vkAllocateMemory,
 		.vkFreeMemory = vkFreeMemory,
@@ -304,8 +305,7 @@ void CreateDevice(VkPhysicalDevice phyDevice)
 		.vkGetImageMemoryRequirements2KHR = vkGetImageMemoryRequirements2KHR,
 		.vkBindBufferMemory2KHR = vkBindBufferMemory2KHR,
 		.vkBindImageMemory2KHR = vkBindImageMemory2KHR,
-		.vkGetPhysicalDeviceMemoryProperties2KHR = vkGetPhysicalDeviceMemoryProperties2KHR
-	};
+		.vkGetPhysicalDeviceMemoryProperties2KHR = vkGetPhysicalDeviceMemoryProperties2KHR };
 
 	VmaAllocatorCreateInfo aInfo{
 		.physicalDevice = phyDevice, .device = s_Device, .pVulkanFunctions = &vkFuncs, .instance = s_Instance
@@ -332,7 +332,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBits
 	case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
 		ERROR("Vulkan: {}", callback->pMessage);
 		break;
-	default: break;
+	default:
+		break;
 	}
 
 	return VK_FALSE;

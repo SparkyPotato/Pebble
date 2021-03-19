@@ -118,10 +118,10 @@ VkExtent2D GetExtent(GLFWwindow* window, const Support& support)
 		glfwGetFramebufferSize(window, &width, &height);
 
 		VkExtent2D extent;
-		extent.width = std::max(support.Capabilities.minImageExtent.width,
-			std::min(support.Capabilities.maxImageExtent.width, uint32_t(width)));
-		extent.height = std::max(support.Capabilities.minImageExtent.height,
-			std::min(support.Capabilities.maxImageExtent.height, uint32_t(height)));
+		extent.width = std::clamp(
+			u32(width), support.Capabilities.minImageExtent.width, support.Capabilities.maxImageExtent.width);
+		extent.height = std::clamp(
+			u32(height), support.Capabilities.minImageExtent.height, support.Capabilities.maxImageExtent.height);
 
 		return extent;
 	}
@@ -179,6 +179,28 @@ void Swapchain::Recreate()
 
 	VkCall(vkCreateSwapchainKHR(Instance::Device(), &info, nullptr, &m_Swapchain));
 	vkDestroySwapchainKHR(Instance::Device(), oldSwapchain, nullptr);
+
+	u32 count;
+	VkCall(vkGetSwapchainImagesKHR(Instance::Device(), m_Swapchain, &count, nullptr));
+	m_Images.resize(count);
+	VkCall(vkGetSwapchainImagesKHR(Instance::Device(), m_Swapchain, &count, m_Images.data()));
+	m_Views.resize(count);
+
+	for (u64 i = 0; auto image : m_Images)
+	{
+		m_Views[i] = ImageView(image, options.Format.format, VK_IMAGE_VIEW_TYPE_2D,
+			VkComponentMapping{ .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.g = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.b = VK_COMPONENT_SWIZZLE_IDENTITY,
+				.a = VK_COMPONENT_SWIZZLE_IDENTITY },
+			VkImageSubresourceRange{ .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1 });
+
+		i++;
+	}
 }
 
 void Swapchain::FramebufferResizeCallback(GLFWwindow* window, int width, int height)
