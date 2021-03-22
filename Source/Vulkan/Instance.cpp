@@ -8,6 +8,9 @@
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
 
+#include "Command.h"
+#include "Sync.h"
+
 namespace Instance {
 
 bool IsInitialized = false;
@@ -367,6 +370,58 @@ VkPhysicalDevice PhysicalDevice() { return s_PhysicalDevice; }
 VmaAllocator Allocator() { return s_Allocator; }
 
 u32 GraphicsIndex() { return s_GraphicsQueueIndex; }
+
+VkQueue GraphicsQueue() { return s_GraphicsQueue; }
+
+void WaitForIdle() { vkDeviceWaitIdle(s_Device); }
+
+void Submit(std::span<CommandBuffer*> buffers, std::span<std::pair<const Semaphore*, VkPipelineStageFlags>> wait,
+	std::span<const Semaphore*> signal, const Fence* notify)
+{
+	// A lot of allocation going on here, so I made it static. Submitting from multiple threads is not allowed, so the
+	// vectors don't have to be thread_local.
+	static std::vector<VkSemaphore> waitSemaphores;
+	static std::vector<VkPipelineStageFlags> waitStages;
+	static std::vector<VkSemaphore> signalSemaphores;
+	static std::vector<VkCommandBuffer> commandBuffers;
+
+	waitSemaphores.clear();
+	waitStages.clear();
+	signalSemaphores.clear();
+	commandBuffers.clear();
+
+	waitSemaphores.reserve(wait.size());
+	waitStages.reserve(wait.size());
+	signalSemaphores.reserve(signal.size());
+	commandBuffers.reserve(buffers.size());
+
+	for (auto buffer : buffers)
+	{
+		commandBuffers.push_back(buffer->GetHandle());
+	}
+
+	for (auto pair : wait)
+	{
+		waitSemaphores.push_back(pair.first->GetHandle());
+		waitStages.push_back(pair.second);
+	}
+
+	for (auto sem : signal)
+	{
+		signalSemaphores.push_back(sem->GetHandle());
+	}
+
+	VkSubmitInfo info{ .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.waitSemaphoreCount = u32(wait.size()),
+		.pWaitSemaphores = waitSemaphores.data(),
+		.pWaitDstStageMask = waitStages.data(),
+		.commandBufferCount = u32(commandBuffers.size()),
+		.pCommandBuffers = commandBuffers.data(),
+		.signalSemaphoreCount = u32(signalSemaphores.size()),
+		.pSignalSemaphores = signalSemaphores.data() };
+
+	VkCall(vkQueueSubmit(s_GraphicsQueue, 1, &info, notify ? notify->GetHandle() : VK_NULL_HANDLE));
+}
 
 }
 

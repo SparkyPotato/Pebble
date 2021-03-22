@@ -1,9 +1,14 @@
 #pragma once
 
-#define VOLK_VULKAN_H_PATH "vulkan/vulkan.h"
-#include "volk.h"
-#include "vk_mem_alloc.h"
+#define VK_NO_PROTOTYPES
+#include "vulkan/vulkan.h"
 #include "GLFW/glfw3.h"
+#include "vk_mem_alloc.h"
+#include "volk.h"
+
+class CommandBuffer;
+class Fence;
+class Semaphore;
 
 namespace Instance {
 
@@ -16,6 +21,11 @@ VkPhysicalDevice PhysicalDevice();
 VmaAllocator Allocator();
 
 u32 GraphicsIndex();
+VkQueue GraphicsQueue();
+
+void WaitForIdle();
+void Submit(std::span<CommandBuffer*> buffers, std::span<std::pair<const Semaphore*, VkPipelineStageFlags>> wait,
+	std::span<const Semaphore*> signal, const Fence* notify);
 
 extern bool IsInitialized;
 

@@ -29,7 +29,7 @@ public:
 	bool ShouldClose();
 
 	const Input& GetInput() { return m_Input; }
-	const Swapchain& GetSwapchain() { return m_Swapchain; }
+	Swapchain& GetSwapchain() { return m_Swapchain; }
 
 	void SetRedrawCallback(std::function<void()> callback);
 

@@ -3,8 +3,10 @@
 #include "App/App.h"
 #include "App/Logger.h"
 
-int main()
+int main(int argc, char* argv[])
 {
+	std::filesystem::current_path(std::filesystem::path(argv[0]).parent_path());
+
 	int returnVal = 0;
 	try
 	{

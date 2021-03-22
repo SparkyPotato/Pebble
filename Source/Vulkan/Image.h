@@ -15,6 +15,8 @@ public:
 	ImageView(ImageView&& other);
 	ImageView& operator=(ImageView&& other);
 
+	VkImageView GetHandle() const { return m_View; }
+
 private:
 	VkImageView m_View = VK_NULL_HANDLE;
 	VkFormat m_Format = VK_FORMAT_UNDEFINED;

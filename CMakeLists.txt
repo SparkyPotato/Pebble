@@ -48,3 +48,28 @@ set_target_properties(Pebble PROPERTIES CXX_EXTENSIONS OFF)
 
 find_package(Threads REQUIRED)
 target_link_libraries(Pebble PRIVATE Threads::Threads glfw glm spdlog volk)
+
+file(GLOB_RECURSE GLSL_SOURCE CONFIGURE_DEPENDS
+	${CMAKE_CURRENT_SOURCE_DIR}/Shaders/*
+)
+
+foreach(SHADER ${GLSL_SOURCE})
+	get_filename_component(FILENAME ${SHADER} NAME)
+	set(SPRIV "${PROJECT_BINARY_DIR}/Shaders/${FILENAME}.spv")
+	add_custom_command(
+		OUTPUT ${SPRIV}
+		COMMAND glslc ${SHADER} -o ${SPRIV}
+		DEPENDS ${SHADER}
+	)
+	list(APPEND SPIRV_FILES ${SPRIV})
+endforeach()
+
+add_custom_target(
+	Shaders 
+	DEPENDS ${SPIRV_FILES}
+)
+add_custom_command(
+	TARGET Shaders
+	COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_BINARY_DIR}/Shaders/"
+)
+add_dependencies(Pebble Shaders)

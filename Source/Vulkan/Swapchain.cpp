@@ -4,7 +4,9 @@
 
 #include "Window/Window.h"
 
-Swapchain::Swapchain(GLFWwindow* target)
+#include "Sync.h"
+
+Swapchain::Swapchain(GLFWwindow* target) : m_Window(target)
 {
 	VkCall(glfwCreateWindowSurface(Instance::Instance(), target, nullptr, &m_Surface));
 	glfwSetFramebufferSizeCallback(target, &FramebufferResizeCallback);
@@ -18,6 +20,75 @@ void Swapchain::SetPreResizeCallback(std::function<void(u32, u32)> callback) { m
 
 void Swapchain::SetPostResizeCallback(std::function<void(u32, u32)> callback) { m_PostResizeCallback = callback; }
 
+std::optional<u32> Swapchain::GetNextImage(const Semaphore* semaphore, const Fence* fence, u64 timeout) const
+{
+	if (m_Stalled)
+	{
+		return std::nullopt;
+	}
+
+	u32 ret = -1;
+	VkResult res = vkAcquireNextImageKHR(Instance::Device(), m_Swapchain, timeout,
+		semaphore ? semaphore->GetHandle() : VK_NULL_HANDLE, fence ? fence->GetHandle() : VK_NULL_HANDLE, &ret);
+
+	if (res != VK_SUCCESS || ret == -1)
+	{
+		if (res != VK_ERROR_OUT_OF_DATE_KHR && res != VK_SUBOPTIMAL_KHR)
+		{
+			CRITICAL("Failed to acquire swapchain image");
+		}
+
+		return std::nullopt;
+	}
+
+	return ret;
+}
+
+void Swapchain::Present(
+	std::span<const Swapchain*> swapchains, std::span<const Semaphore*> wait, std::span<u32> indices)
+{
+	static std::vector<VkSemaphore> waitSemaphores;
+	static std::vector<VkSwapchainKHR> vkSwapchains;
+	static std::vector<VkResult> results;
+
+	waitSemaphores.clear();
+	vkSwapchains.clear();
+
+	waitSemaphores.reserve(wait.size());
+	vkSwapchains.reserve(swapchains.size());
+	results.resize(swapchains.size());
+
+	for (auto sem : wait)
+	{
+		waitSemaphores.push_back(sem->GetHandle());
+	}
+	for (auto swapchain : swapchains)
+	{
+		if (!swapchain->m_Stalled)
+		{
+			vkSwapchains.push_back(swapchain->m_Swapchain);
+		}
+	}
+
+	VkPresentInfoKHR info{ .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+		.waitSemaphoreCount = u32(waitSemaphores.size()),
+		.pWaitSemaphores = waitSemaphores.data(),
+		.swapchainCount = u32(vkSwapchains.size()),
+		.pSwapchains = vkSwapchains.data(),
+		.pImageIndices = indices.data(),
+		.pResults = results.data() };
+
+	vkQueuePresentKHR(Instance::GraphicsQueue(), &info);
+
+	for (auto res : results)
+	{
+		if (res != VK_SUCCESS && res != VK_ERROR_OUT_OF_DATE_KHR && res != VK_SUBOPTIMAL_KHR)
+		{
+			CRITICAL("Failed to present");
+		}
+	}
+}
+
 Swapchain::~Swapchain()
 {
 	vkDestroySwapchainKHR(Instance::Device(), m_Swapchain, nullptr);
@@ -30,7 +101,16 @@ Swapchain::Swapchain(Swapchain&& other)
 	other.m_Surface = VK_NULL_HANDLE;
 	m_Swapchain = other.m_Swapchain;
 	other.m_Swapchain = VK_NULL_HANDLE;
+
 	m_Window = other.m_Window;
+
+	m_Format = other.m_Format;
+	m_Stalled = other.m_Stalled;
+
+	m_Images = std::move(other.m_Images);
+	m_Views = std::move(other.m_Views);
+	m_PreResizeCallback = std::move(other.m_PreResizeCallback);
+	m_PostResizeCallback = std::move(other.m_PostResizeCallback);
 }
 
 Swapchain& Swapchain::operator=(Swapchain&& other)
@@ -41,7 +121,16 @@ Swapchain& Swapchain::operator=(Swapchain&& other)
 	other.m_Surface = VK_NULL_HANDLE;
 	m_Swapchain = other.m_Swapchain;
 	other.m_Swapchain = VK_NULL_HANDLE;
+
 	m_Window = other.m_Window;
+
+	m_Format = other.m_Format;
+	m_Stalled = other.m_Stalled;
+
+	m_Images = std::move(other.m_Images);
+	m_Views = std::move(other.m_Views);
+	m_PreResizeCallback = std::move(other.m_PreResizeCallback);
+	m_PostResizeCallback = std::move(other.m_PostResizeCallback);
 
 	return *this;
 }
@@ -153,6 +242,8 @@ void Swapchain::Recreate()
 	auto support = GetSurfaceSupport(m_Surface);
 	auto options = GetSwapchainOptions(m_Window, support);
 	auto oldSwapchain = m_Swapchain;
+
+	m_Format = options.Format.format;
 
 	VkSwapchainCreateInfoKHR info{ .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 		.surface = m_Surface,

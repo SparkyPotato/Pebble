@@ -3,6 +3,9 @@
 #include "Instance.h"
 #include "Image.h"
 
+class Semaphore;
+class Fence;
+
 class Swapchain
 {
 public:
@@ -19,7 +22,11 @@ public:
 	void SetPreResizeCallback(std::function<void(u32, u32)> callback);
 	void SetPostResizeCallback(std::function<void(u32, u32)> callback);
 
-	bool IsStalled() { return m_Stalled; }
+	VkFormat GetFormat() const { return m_Format; }
+	const std::vector<ImageView>& GetViews() const { return m_Views; }
+
+	std::optional<u32> GetNextImage(const Semaphore* semaphore, const Fence* fence, u64 timeout = -1) const;
+	static void Present(std::span<const Swapchain*> swapchains, std::span<const Semaphore*> wait, std::span<u32> indices);
 
 private:
 	static void FramebufferResizeCallback(GLFWwindow* window, int width, int height);
@@ -29,6 +36,9 @@ private:
 	GLFWwindow* m_Window = nullptr;
 	VkSurfaceKHR m_Surface = VK_NULL_HANDLE;
 	VkSwapchainKHR m_Swapchain = VK_NULL_HANDLE;
+
+	VkFormat m_Format;
+
 	std::vector<VkImage> m_Images;
 	std::vector<ImageView> m_Views;
 	bool m_Stalled = false;
