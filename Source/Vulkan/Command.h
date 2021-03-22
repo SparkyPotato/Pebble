@@ -39,8 +39,12 @@ public:
 	void BindPipeline(const Pipeline& pipeline);
 	void BindViewport(const Viewport& viewport);
 	void BindVertexBuffer(const Buffer& buffer, u64 offset);
+	void BindIndexBuffer(const Buffer& buffer, u64 offset, VkIndexType type);
+
+	void CopyBuffer(const Buffer& from, const Buffer& to, std::span<VkBufferCopy> regions);
 
 	void Draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance);
+	void DrawIndexed(u32 indexCount, u32 instanceCount,  u32 firstIndex, i32 vertexOffset, u32 firstInstance);
 
 private:
 	friend class CommandPool;

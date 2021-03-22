@@ -2,13 +2,13 @@
 
 #include "PipelineLayout.h"
 
-PipelineLayout::PipelineLayout() 
+PipelineLayout::PipelineLayout()
 {
 	VkPipelineLayoutCreateInfo info{ .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = 0,
 		.pSetLayouts = nullptr,
 		.pushConstantRangeCount = 0,
-		.pPushConstantRanges = nullptr};
+		.pPushConstantRanges = nullptr };
 
 	VkCall(vkCreatePipelineLayout(Instance::Device(), &info, nullptr, &m_Layout));
 }
@@ -16,8 +16,7 @@ PipelineLayout::PipelineLayout()
 PipelineLayout::PipelineLayout(std::span<std::vector<DescriptorBinding>> layouts, std::span<PushRange> pushRanges)
 {
 	std::vector<VkDescriptorSetLayoutBinding> bindings;
-	std::vector<VkDescriptorSetLayout> descLayouts;
-	descLayouts.reserve(layouts.size());
+	m_DescriptorLayouts.reserve(layouts.size());
 	for (const auto& layout : layouts)
 	{
 		bindings.reserve(layout.size());
@@ -36,7 +35,7 @@ PipelineLayout::PipelineLayout(std::span<std::vector<DescriptorBinding>> layouts
 
 		VkDescriptorSetLayout descLayout;
 		VkCall(vkCreateDescriptorSetLayout(Instance::Device(), &info, nullptr, &descLayout));
-		descLayouts.push_back(descLayout);
+		m_DescriptorLayouts.push_back(descLayout);
 
 		bindings.clear();
 	}
@@ -51,20 +50,23 @@ PipelineLayout::PipelineLayout(std::span<std::vector<DescriptorBinding>> layouts
 	}
 
 	VkPipelineLayoutCreateInfo info{ .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = u32(descLayouts.size()),
-		.pSetLayouts = descLayouts.data(),
+		.setLayoutCount = u32(m_DescriptorLayouts.size()),
+		.pSetLayouts = m_DescriptorLayouts.data(),
 		.pushConstantRangeCount = u32(ranges.size()),
 		.pPushConstantRanges = ranges.data() };
 
 	VkCall(vkCreatePipelineLayout(Instance::Device(), &info, nullptr, &m_Layout));
+}
 
-	for (VkDescriptorSetLayout layout : descLayouts)
+PipelineLayout::~PipelineLayout()
+{
+	vkDestroyPipelineLayout(Instance::Device(), m_Layout, nullptr);
+
+	for (VkDescriptorSetLayout layout : m_DescriptorLayouts)
 	{
 		vkDestroyDescriptorSetLayout(Instance::Device(), layout, nullptr);
 	}
 }
-
-PipelineLayout::~PipelineLayout() { vkDestroyPipelineLayout(Instance::Device(), m_Layout, nullptr); }
 
 PipelineLayout::PipelineLayout(PipelineLayout&& other)
 {

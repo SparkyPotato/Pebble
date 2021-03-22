@@ -27,7 +27,7 @@ class Rasterizer
 public:
 	Rasterizer() = default;
 	Rasterizer(VkFrontFace frontFace, VkBool32 clampDepth = VK_FALSE, VkBool32 discard = VK_FALSE,
-		VkPolygonMode mode = VK_POLYGON_MODE_FILL, float lineWidth = 1.f, VkBool32 cull = VK_FALSE,
+		VkPolygonMode mode = VK_POLYGON_MODE_FILL, float lineWidth = 1.f, VkBool32 cull = VK_TRUE,
 		VkBool32 depthBias = VK_FALSE, float depthBiasConstant = 0.f, float depthBiasClamp = 0.f,
 		float depthBiasSlope = 0.f);
 

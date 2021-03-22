@@ -7,35 +7,6 @@
 #include "Framebuffer.h"
 #include "Pipeline.h"
 
-CommandPool::CommandPool(VkCommandPoolCreateFlags flags)
-{
-	VkCommandPoolCreateInfo info{ .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-		.flags = flags,
-		.queueFamilyIndex = Instance::GraphicsIndex() };
-
-	VkCall(vkCreateCommandPool(Instance::Device(), &info, nullptr, &m_Pool));
-}
-
-CommandBuffer CommandPool::Allocate(VkCommandBufferLevel level) { return CommandBuffer(m_Pool, level); }
-
-CommandPool::~CommandPool() { vkDestroyCommandPool(Instance::Device(), m_Pool, nullptr); }
-
-CommandPool::CommandPool(CommandPool&& other)
-{
-	m_Pool = other.m_Pool;
-	other.m_Pool = VK_NULL_HANDLE;
-}
-
-CommandPool& CommandPool::operator=(CommandPool&& other)
-{
-	this->~CommandPool();
-
-	m_Pool = other.m_Pool;
-	other.m_Pool = VK_NULL_HANDLE;
-
-	return *this;
-}
-
 CommandBuffer::CommandBuffer(VkCommandPool pool, VkCommandBufferLevel level) : m_Pool(pool)
 {
 	VkCommandBufferAllocateInfo info{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -96,9 +67,24 @@ void CommandBuffer::BindVertexBuffer(const Buffer& buffer, u64 offset)
 	vkCmdBindVertexBuffers(m_Buffer, 0, 1, &buf, &offset);
 }
 
+void CommandBuffer::BindIndexBuffer(const Buffer& buffer, u64 offset, VkIndexType type)
+{
+	vkCmdBindIndexBuffer(m_Buffer, buffer.GetHandle(), offset, type);
+}
+
+void CommandBuffer::CopyBuffer(const Buffer& from, const Buffer& to, std::span<VkBufferCopy> regions)
+{
+	vkCmdCopyBuffer(m_Buffer, from.GetHandle(), to.GetHandle(), u32(regions.size()), regions.data());
+}
+
 void CommandBuffer::Draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance)
 {
 	vkCmdDraw(m_Buffer, vertexCount, instanceCount, firstVertex, firstInstance);
+}
+
+void CommandBuffer::DrawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 vertexOffset, u32 firstInstance)
+{
+	vkCmdDrawIndexed(m_Buffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
 CommandBuffer::~CommandBuffer()
@@ -123,6 +109,35 @@ CommandBuffer& CommandBuffer::operator=(CommandBuffer&& other)
 	m_Buffer = other.m_Buffer;
 	other.m_Buffer = VK_NULL_HANDLE;
 	m_Pool = other.m_Pool;
+
+	return *this;
+}
+
+CommandPool::CommandPool(VkCommandPoolCreateFlags flags)
+{
+	VkCommandPoolCreateInfo info{ .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		.flags = flags,
+		.queueFamilyIndex = Instance::GraphicsIndex() };
+
+	VkCall(vkCreateCommandPool(Instance::Device(), &info, nullptr, &m_Pool));
+}
+
+CommandBuffer CommandPool::Allocate(VkCommandBufferLevel level) { return CommandBuffer(m_Pool, level); }
+
+CommandPool::~CommandPool() { vkDestroyCommandPool(Instance::Device(), m_Pool, nullptr); }
+
+CommandPool::CommandPool(CommandPool&& other)
+{
+	m_Pool = other.m_Pool;
+	other.m_Pool = VK_NULL_HANDLE;
+}
+
+CommandPool& CommandPool::operator=(CommandPool&& other)
+{
+	this->~CommandPool();
+
+	m_Pool = other.m_Pool;
+	other.m_Pool = VK_NULL_HANDLE;
 
 	return *this;
 }

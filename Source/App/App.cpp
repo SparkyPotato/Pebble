@@ -2,17 +2,35 @@
 
 #include "App.h"
 
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+
 App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 {
 	m_MainWindow = Window("Pebble", { 1600, 900 });
 
-	m_VertexBuffer = Buffer(sizeof(float) * 5 * 3, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-	auto data = reinterpret_cast<std::pair<glm::vec2, glm::vec3>*>(m_VertexBuffer.Map());
+	m_VertexBuffer = Buffer(sizeof(float) * 5 * 3, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VMA_MEMORY_USAGE_GPU_ONLY);
+	m_UniformBuffer = Buffer(sizeof(glm::mat4) * 3, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+	Buffer staging(sizeof(float) * 5 * 3, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	auto data = reinterpret_cast<std::pair<glm::vec2, glm::vec3>*>(staging.Map());
 	data[0] = { { 0.f, -0.5f }, { 1.f, 0.f, 0.f } };
 	data[1] = { { 0.5f, 0.5f }, { 0.f, 1.f, 0.f } };
 	data[2] = { { -0.5f, 0.5f }, { 0.f, 0.f, 1.f } };
-	m_VertexBuffer.Unmap();
-	m_VertexBuffer.Flush(0, VK_WHOLE_SIZE);
+	staging.Unmap();
+	staging.Flush(0, VK_WHOLE_SIZE);
+
+	auto buf = m_Pool.Allocate();
+	buf.Begin();
+	VkBufferCopy copy[] = { VkBufferCopy{ 0, 0, 60 } };
+	buf.CopyBuffer(staging, m_VertexBuffer, copy);
+	buf.End();
+	CommandBuffer* bufs[] = { &buf };
+	Fence fence;
+	Instance::Submit(bufs, {}, {}, &fence);
 
 	Shader shaders[] = { Shader("../Shaders/Triangle.vert.spv", VK_SHADER_STAGE_VERTEX_BIT),
 		Shader("../Shaders/Triangle.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT) };
@@ -39,14 +57,18 @@ App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 
 	m_MainViewport = Viewport{ { 0.f, 0.f }, { 1600.f, 900.f }, { 0.f, 1.f }, VkRect2D{ { 0, 0 }, { 1600, 900 } } };
 
+	std::vector<DescriptorBinding> bindings = { { 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
+		VK_SHADER_STAGE_VERTEX_BIT } };
+	m_Layout = PipelineLayout(std::span(&bindings, 1), {});
+
 	m_Pipeline = Pipeline(shaders,
 		VertexInput(
 			VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, { { VK_FORMAT_R32G32_SFLOAT, 0 }, { VK_FORMAT_R32G32B32_SFLOAT, 1 } }),
-		m_MainViewport, Rasterizer(VK_FRONT_FACE_CLOCKWISE), Multisample(), DepthStencil(),
+		m_MainViewport, Rasterizer(VK_FRONT_FACE_COUNTER_CLOCKWISE), Multisample(), DepthStencil(),
 		BlendState{ { VkPipelineColorBlendAttachmentState{
 			.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT
 							  | VK_COLOR_COMPONENT_A_BIT } } },
-		DynamicState{ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR }, PipelineLayout(), m_Pass, 0);
+		DynamicState{ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR }, m_Layout, m_Pass, 0);
 
 	auto generate = [this](u32 w, u32 h) {
 		auto& views = m_MainWindow.GetSwapchain().GetViews();
@@ -55,14 +77,18 @@ App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 		m_MainBuffers.reserve(views.size());
 		m_MainBuffers.clear();
 
+		VkDescriptorPoolSize size{ .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = u32(views.size()) };
+		m_DPool = DescriptorPool(std::span(&size, 1), u32(views.size()));
+
 		for (const auto& view : views)
 		{
 			const ImageView* attachments[] = { &view };
 			Framebuffer& framebuffer = m_MainFramebuffers.emplace_back(m_Pass, glm::u32vec2(w, h), 1, attachments);
 			CommandBuffer& buffer = m_MainBuffers.emplace_back(m_Pool.Allocate());
+			DescriptorSet& set = m_Descriptors.emplace_back(m_DPool.Allocate(m_Layout, 0));
 
 			buffer.Begin();
-			VkClearValue values[] = { VkClearColorValue{ 0.f, 1.f, 0.f, 1.f } };
+			VkClearValue values[] = { VkClearColorValue{ 0.f, 0.f, 0.f, 1.f } };
 			buffer.BeginRenderPass(m_Pass, framebuffer, VkRect2D{ { 0, 0 }, { w, h } }, values);
 
 			buffer.BindViewport(m_MainViewport);
@@ -107,6 +133,8 @@ App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 		}
 	};
 	m_MainWindow.SetRedrawCallback(m_Draw);
+
+	fence.WaitOn();
 }
 
 App::~App() { Instance::WaitForIdle(); }
@@ -119,4 +147,22 @@ void App::Run()
 
 		m_Draw();
 	}
+}
+
+void App::UpdateUniformBuffer()
+{
+	static auto start = std::chrono::high_resolution_clock::now();
+
+	auto now = std::chrono::high_resolution_clock::now();
+	float dt = std::chrono::duration<float>(now - start).count();
+
+	glm::mat4* data = reinterpret_cast<glm::mat4*>(m_UniformBuffer.Map());
+
+	data[0] = glm::rotate(glm::mat4(1.f), dt * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
+	data[1] = glm::lookAt(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f, 0.f, 0.f), glm::vec3(0.f, 0.f, 1.f));
+	data[2] = glm::perspective(
+		glm::radians(45.f), m_MainViewport.GetViewport().width / m_MainViewport.GetViewport().height, 0.1f, 10.f);
+	data[2][1][1] *= -1.f;
+
+	m_UniformBuffer.Unmap();
 }
