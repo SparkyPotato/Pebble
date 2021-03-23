@@ -80,7 +80,7 @@ void CommandBuffer::BindDescriptorSet(
 	VkDescriptorSet s = set.GetHandle();
 
 	vkCmdBindDescriptorSets(m_Buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout.GetHandle(), index, 1, &s,
-		dynamicOffset ? 0 : 1, &dynamicOffset.value());
+		dynamicOffset ? 1 : 0, dynamicOffset ? &dynamicOffset.value() : nullptr);
 }
 
 void CommandBuffer::CopyBuffer(const Buffer& from, const Buffer& to, std::span<VkBufferCopy> regions)
