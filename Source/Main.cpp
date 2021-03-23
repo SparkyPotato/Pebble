@@ -7,7 +7,6 @@ int main(int argc, char* argv[])
 {
 	std::filesystem::current_path(std::filesystem::path(argv[0]).parent_path());
 
-	int returnVal = 0;
 	try
 	{
 		Window::Init();
@@ -15,14 +14,24 @@ int main(int argc, char* argv[])
 
 		App app;
 		app.Run();
+
+		Instance::Cleanup();
+		Window::Cleanup();
+		spdlog::shutdown();
+
+		return 0;
+	}
+	catch (std::exception& e)
+	{
+		ERROR("Unexpected exception: {}", e.what());
+	}
+	catch (int)
+	{
 	}
 	catch (...)
 	{
-		returnVal = 1;
+		ERROR("Unknown exception thrown");
 	}
 
-	Instance::Cleanup();
-	Window::Cleanup();
-	spdlog::shutdown();
-	return returnVal;
+	return 1;
 }

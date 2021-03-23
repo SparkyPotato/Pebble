@@ -72,6 +72,7 @@ PipelineLayout::PipelineLayout(PipelineLayout&& other)
 {
 	m_Layout = other.m_Layout;
 	other.m_Layout = VK_NULL_HANDLE;
+	m_DescriptorLayouts = std::move(other.m_DescriptorLayouts);
 }
 
 PipelineLayout& PipelineLayout::operator=(PipelineLayout&& other)
@@ -80,6 +81,7 @@ PipelineLayout& PipelineLayout::operator=(PipelineLayout&& other)
 
 	m_Layout = other.m_Layout;
 	other.m_Layout = VK_NULL_HANDLE;
+	m_DescriptorLayouts = std::move(other.m_DescriptorLayouts);
 
 	return *this;
 }

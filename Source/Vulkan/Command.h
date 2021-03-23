@@ -3,9 +3,11 @@
 #include "Instance.h"
 
 class Buffer;
+class DescriptorSet;
 class RenderPass;
 class Framebuffer;
 class Pipeline;
+class PipelineLayout;
 class Viewport;
 
 struct InheritanceInfo
@@ -40,11 +42,13 @@ public:
 	void BindViewport(const Viewport& viewport);
 	void BindVertexBuffer(const Buffer& buffer, u64 offset);
 	void BindIndexBuffer(const Buffer& buffer, u64 offset, VkIndexType type);
+	void BindDescriptorSet(const PipelineLayout& layout, u32 index, const DescriptorSet& set,
+		std::optional<u32> dynamicOffset = std::nullopt);
 
 	void CopyBuffer(const Buffer& from, const Buffer& to, std::span<VkBufferCopy> regions);
 
 	void Draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance);
-	void DrawIndexed(u32 indexCount, u32 instanceCount,  u32 firstIndex, i32 vertexOffset, u32 firstInstance);
+	void DrawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 vertexOffset, u32 firstInstance);
 
 private:
 	friend class CommandPool;

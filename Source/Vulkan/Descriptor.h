@@ -2,7 +2,15 @@
 
 #include "Instance.h"
 
+class Buffer;
 class PipelineLayout;
+
+struct BufferUpdate
+{
+	const Buffer& Buffer;
+	u64 Offset;
+	u64 Range;
+};
 
 class DescriptorSet
 {
@@ -15,6 +23,10 @@ public:
 
 	DescriptorSet(DescriptorSet&& other);
 	DescriptorSet& operator=(DescriptorSet&& other);
+
+	void Update(u32 binding, u32 arrayElement, VkDescriptorType type, std::span<BufferUpdate> buffers);
+
+	VkDescriptorSet GetHandle() const { return m_Set; }
 
 private:
 	friend class DescriptorPool;

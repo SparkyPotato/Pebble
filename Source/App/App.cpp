@@ -76,6 +76,8 @@ App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 		m_MainFramebuffers.clear();
 		m_MainBuffers.reserve(views.size());
 		m_MainBuffers.clear();
+		m_Descriptors.reserve(views.size());
+		m_Descriptors.clear();
 
 		VkDescriptorPoolSize size{ .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = u32(views.size()) };
 		m_DPool = DescriptorPool(std::span(&size, 1), u32(views.size()));
@@ -87,6 +89,9 @@ App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 			CommandBuffer& buffer = m_MainBuffers.emplace_back(m_Pool.Allocate());
 			DescriptorSet& set = m_Descriptors.emplace_back(m_DPool.Allocate(m_Layout, 0));
 
+			BufferUpdate update = { m_UniformBuffer, 0, sizeof(glm::mat4) * 3 };
+			set.Update(0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, std::span(&update, 1));
+
 			buffer.Begin();
 			VkClearValue values[] = { VkClearColorValue{ 0.f, 0.f, 0.f, 1.f } };
 			buffer.BeginRenderPass(m_Pass, framebuffer, VkRect2D{ { 0, 0 }, { w, h } }, values);
@@ -94,13 +99,14 @@ App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 			buffer.BindViewport(m_MainViewport);
 			buffer.BindPipeline(m_Pipeline);
 			buffer.BindVertexBuffer(m_VertexBuffer, 0);
+			buffer.BindDescriptorSet(m_Layout, 0, set);
 			buffer.Draw(3, 1, 0, 0);
 
 			buffer.EndRenderPass();
 			buffer.End();
 		}
 	};
-	generate(1600, 900);
+	generate(m_MainWindow.GetSwapchain().GetSize().x, m_MainWindow.GetSwapchain().GetSize().y);
 
 	m_MainWindow.GetSwapchain().SetPreResizeCallback([this](u32 w, u32 h) {
 		m_MainFrameFence.WaitOn();
@@ -120,6 +126,7 @@ App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 			m_MainFrameFence.Reset();
 			u32 image = imageOpt.value();
 
+			UpdateUniformBuffer();
 			CommandBuffer* buffers[] = { &m_MainBuffers[image] };
 			std::pair<const Semaphore*, VkPipelineStageFlags> wait[] = { { &m_MainImageAvailable,
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT } };
@@ -165,4 +172,5 @@ void App::UpdateUniformBuffer()
 	data[2][1][1] *= -1.f;
 
 	m_UniformBuffer.Unmap();
+	m_UniformBuffer.Flush(0, VK_WHOLE_SIZE);
 }

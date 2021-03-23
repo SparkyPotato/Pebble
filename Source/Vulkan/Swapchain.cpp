@@ -16,6 +16,54 @@ Swapchain::Swapchain(GLFWwindow* target) : m_Window(target)
 	TRACE("Created swapchain");
 }
 
+Swapchain::~Swapchain()
+{
+	vkDestroySwapchainKHR(Instance::Device(), m_Swapchain, nullptr);
+	vkDestroySurfaceKHR(Instance::Instance(), m_Surface, nullptr);
+}
+
+Swapchain::Swapchain(Swapchain&& other)
+{
+	m_Surface = other.m_Surface;
+	other.m_Surface = VK_NULL_HANDLE;
+	m_Swapchain = other.m_Swapchain;
+	other.m_Swapchain = VK_NULL_HANDLE;
+
+	m_Window = other.m_Window;
+
+	m_Format = other.m_Format;
+	m_Stalled = other.m_Stalled;
+	m_Size = other.m_Size;
+
+	m_Images = std::move(other.m_Images);
+	m_Views = std::move(other.m_Views);
+	m_PreResizeCallback = std::move(other.m_PreResizeCallback);
+	m_PostResizeCallback = std::move(other.m_PostResizeCallback);
+}
+
+Swapchain& Swapchain::operator=(Swapchain&& other)
+{
+	this->~Swapchain();
+
+	m_Surface = other.m_Surface;
+	other.m_Surface = VK_NULL_HANDLE;
+	m_Swapchain = other.m_Swapchain;
+	other.m_Swapchain = VK_NULL_HANDLE;
+
+	m_Window = other.m_Window;
+
+	m_Format = other.m_Format;
+	m_Stalled = other.m_Stalled;
+	m_Size = other.m_Size;
+
+	m_Images = std::move(other.m_Images);
+	m_Views = std::move(other.m_Views);
+	m_PreResizeCallback = std::move(other.m_PreResizeCallback);
+	m_PostResizeCallback = std::move(other.m_PostResizeCallback);
+
+	return *this;
+}
+
 void Swapchain::SetPreResizeCallback(std::function<void(u32, u32)> callback) { m_PreResizeCallback = callback; }
 
 void Swapchain::SetPostResizeCallback(std::function<void(u32, u32)> callback) { m_PostResizeCallback = callback; }
@@ -87,52 +135,6 @@ void Swapchain::Present(
 			CRITICAL("Failed to present");
 		}
 	}
-}
-
-Swapchain::~Swapchain()
-{
-	vkDestroySwapchainKHR(Instance::Device(), m_Swapchain, nullptr);
-	vkDestroySurfaceKHR(Instance::Instance(), m_Surface, nullptr);
-}
-
-Swapchain::Swapchain(Swapchain&& other)
-{
-	m_Surface = other.m_Surface;
-	other.m_Surface = VK_NULL_HANDLE;
-	m_Swapchain = other.m_Swapchain;
-	other.m_Swapchain = VK_NULL_HANDLE;
-
-	m_Window = other.m_Window;
-
-	m_Format = other.m_Format;
-	m_Stalled = other.m_Stalled;
-
-	m_Images = std::move(other.m_Images);
-	m_Views = std::move(other.m_Views);
-	m_PreResizeCallback = std::move(other.m_PreResizeCallback);
-	m_PostResizeCallback = std::move(other.m_PostResizeCallback);
-}
-
-Swapchain& Swapchain::operator=(Swapchain&& other)
-{
-	this->~Swapchain();
-
-	m_Surface = other.m_Surface;
-	other.m_Surface = VK_NULL_HANDLE;
-	m_Swapchain = other.m_Swapchain;
-	other.m_Swapchain = VK_NULL_HANDLE;
-
-	m_Window = other.m_Window;
-
-	m_Format = other.m_Format;
-	m_Stalled = other.m_Stalled;
-
-	m_Images = std::move(other.m_Images);
-	m_Views = std::move(other.m_Views);
-	m_PreResizeCallback = std::move(other.m_PreResizeCallback);
-	m_PostResizeCallback = std::move(other.m_PostResizeCallback);
-
-	return *this;
 }
 
 struct Support
@@ -244,6 +246,7 @@ void Swapchain::Recreate()
 	auto oldSwapchain = m_Swapchain;
 
 	m_Format = options.Format.format;
+	m_Size = { options.Size.width, options.Size.height };
 
 	VkSwapchainCreateInfoKHR info{ .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 		.surface = m_Surface,

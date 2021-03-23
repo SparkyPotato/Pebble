@@ -31,9 +31,9 @@ public:
 
 	VkPipelineLayout GetHandle() const { return m_Layout; }
 
-	VkDescriptorSetLayout GetSetLayout(u32 index = 0) const
+	VkDescriptorSetLayout GetSetLayout(u32 index) const
 	{
-		ASSERT(index < m_DescriptorLayouts.size(), "Out of range!");
+		ASSERT(index < m_DescriptorLayouts.size(), "Out of Descriptor Set range!");
 		return m_DescriptorLayouts[index];
 	}
 

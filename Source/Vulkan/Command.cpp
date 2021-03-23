@@ -4,8 +4,10 @@
 
 #include "Buffer.h"
 #include "Description.h"
+#include "Descriptor.h"
 #include "Framebuffer.h"
 #include "Pipeline.h"
+#include "PipelineLayout.h"
 
 CommandBuffer::CommandBuffer(VkCommandPool pool, VkCommandBufferLevel level) : m_Pool(pool)
 {
@@ -70,6 +72,15 @@ void CommandBuffer::BindVertexBuffer(const Buffer& buffer, u64 offset)
 void CommandBuffer::BindIndexBuffer(const Buffer& buffer, u64 offset, VkIndexType type)
 {
 	vkCmdBindIndexBuffer(m_Buffer, buffer.GetHandle(), offset, type);
+}
+
+void CommandBuffer::BindDescriptorSet(
+	const PipelineLayout& layout, u32 index, const DescriptorSet& set, std::optional<u32> dynamicOffset)
+{
+	VkDescriptorSet s = set.GetHandle();
+
+	vkCmdBindDescriptorSets(m_Buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout.GetHandle(), index, 1, &s,
+		dynamicOffset ? 0 : 1, &dynamicOffset.value());
 }
 
 void CommandBuffer::CopyBuffer(const Buffer& from, const Buffer& to, std::span<VkBufferCopy> regions)

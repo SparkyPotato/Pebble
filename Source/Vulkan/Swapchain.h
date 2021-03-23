@@ -24,6 +24,7 @@ public:
 
 	VkFormat GetFormat() const { return m_Format; }
 	const std::vector<ImageView>& GetViews() const { return m_Views; }
+	glm::u32vec2 GetSize() const { return m_Size; }
 
 	std::optional<u32> GetNextImage(const Semaphore* semaphore, const Fence* fence, u64 timeout = -1) const;
 	static void Present(std::span<const Swapchain*> swapchains, std::span<const Semaphore*> wait, std::span<u32> indices);
@@ -43,6 +44,7 @@ private:
 	std::vector<ImageView> m_Views;
 	bool m_Stalled = false;
 
+	glm::u32vec2 m_Size;
 	std::function<void(u32, u32)> m_PreResizeCallback;
 	std::function<void(u32, u32)> m_PostResizeCallback;
 };
