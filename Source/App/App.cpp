@@ -15,18 +15,47 @@ App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 		VMA_MEMORY_USAGE_GPU_ONLY);
 	m_UniformBuffer = Buffer(sizeof(glm::mat4) * 3, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
+	m_TriangleImage = Image(VK_IMAGE_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB, { 100, 100, 1 }, 1, 1, VK_SAMPLE_COUNT_1_BIT,
+		VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+		VMA_MEMORY_USAGE_GPU_ONLY);
+
+	Buffer image(4 * 100 * 100, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	auto imageData = reinterpret_cast<u8*>(image.Map());
+	for (u64 i = 0; i < 4 * 100 * 100; i += 4)
+	{
+		imageData[i] = 255;
+		imageData[i + 3] = 255;
+	}
+	image.Unmap();
+	image.Flush(0, VK_WHOLE_SIZE);
+
 	Buffer staging(sizeof(float) * 5 * 3, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	auto data = reinterpret_cast<std::pair<glm::vec2, glm::vec3>*>(staging.Map());
-	data[0] = { { 0.f, -0.5f }, { 1.f, 0.f, 0.f } };
-	data[1] = { { 0.5f, 0.5f }, { 0.f, 1.f, 0.f } };
-	data[2] = { { -0.5f, 0.5f }, { 0.f, 0.f, 1.f } };
+	data[0] = { { 0.f, -0.5f }, { 1.f, 1.f, 1.f } };
+	data[1] = { { 0.5f, 0.5f }, { 1.f, 1.f, 1.f } };
+	data[2] = { { -0.5f, 0.5f }, { 1.f, 1.f, 1.f } };
 	staging.Unmap();
 	staging.Flush(0, VK_WHOLE_SIZE);
 
 	auto buf = m_Pool.Allocate();
 	buf.Begin();
+
 	VkBufferCopy copy[] = { VkBufferCopy{ 0, 0, 60 } };
 	buf.CopyBuffer(staging, m_VertexBuffer, copy);
+
+	ImageBarrier barrier{ .Source = 0,
+		.Destination = VK_ACCESS_TRANSFER_WRITE_BIT,
+		.From = VK_IMAGE_LAYOUT_UNDEFINED,
+		.To = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		.Img = m_TriangleImage,
+		.Range = VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 } };
+	buf.PipelineBarrier(
+		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, {}, {}, std::span(&barrier, 1));
+
+	VkBufferImageCopy iCopy[] = { VkBufferImageCopy{
+		0, 0, 0, VkImageSubresourceLayers{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 }, { 0, 0 }, { 100, 100, 1 } } };
+	buf.CopyBufferToImage(image, m_TriangleImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, iCopy);
+
 	buf.End();
 	CommandBuffer* bufs[] = { &buf };
 	Fence fence;
@@ -57,8 +86,8 @@ App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 
 	m_MainViewport = Viewport{ { 0.f, 0.f }, { 1600.f, 900.f }, { 0.f, 1.f }, VkRect2D{ { 0, 0 }, { 1600, 900 } } };
 
-	std::vector<DescriptorBinding> bindings = { { 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
-		VK_SHADER_STAGE_VERTEX_BIT } };
+	std::vector<DescriptorBinding> bindings = { { 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT },
+		{ 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT } };
 	m_Layout = PipelineLayout(std::span(&bindings, 1), {});
 
 	m_Pipeline = Pipeline(shaders,
@@ -79,8 +108,9 @@ App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 		m_Descriptors.reserve(views.size());
 		m_Descriptors.clear();
 
-		VkDescriptorPoolSize size{ .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = u32(views.size()) };
-		m_DPool = DescriptorPool(std::span(&size, 1), u32(views.size()));
+		VkDescriptorPoolSize size[] = { { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, u32(views.size()) },
+			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, u32(views.size()) } };
+		m_DPool = DescriptorPool(size, u32(views.size()));
 
 		for (const auto& view : views)
 		{
@@ -165,7 +195,7 @@ void App::UpdateUniformBuffer()
 
 	glm::mat4* data = reinterpret_cast<glm::mat4*>(m_UniformBuffer.Map());
 
-	data[0] = glm::rotate(glm::mat4(1.f), dt * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
+	data[0] = glm::rotate(glm::mat4(1.f), dt * glm::radians(45.f), glm::vec3(0.f, 0.f, 1.f));
 	data[1] = glm::lookAt(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f, 0.f, 0.f), glm::vec3(0.f, 0.f, 1.f));
 	data[2] = glm::perspective(
 		glm::radians(45.f), m_MainViewport.GetViewport().width / m_MainViewport.GetViewport().height, 0.1f, 10.f);

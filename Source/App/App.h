@@ -25,6 +25,7 @@ private:
 
 	Buffer m_VertexBuffer;
 	Buffer m_UniformBuffer;
+	Image m_TriangleImage;
 	Pipeline m_Pipeline;
 	PipelineLayout m_Layout;
 	RenderPass m_Pass;

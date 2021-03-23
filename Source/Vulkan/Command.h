@@ -4,10 +4,11 @@
 
 class Buffer;
 class DescriptorSet;
-class RenderPass;
 class Framebuffer;
+class Image;
 class Pipeline;
 class PipelineLayout;
+class RenderPass;
 class Viewport;
 
 struct InheritanceInfo
@@ -15,6 +16,31 @@ struct InheritanceInfo
 	RenderPass* Pass;
 	u32 SubpassIndex;
 	Framebuffer* Framebuf;
+};
+
+struct MemoryBarrier
+{
+	VkAccessFlags Source;
+	VkAccessFlags Destination;
+};
+
+struct BufferBarrier
+{
+	VkAccessFlags Source;
+	VkAccessFlags Destination;
+	const Buffer& Buf;
+	u64 Offset;
+	u64 Size;
+};
+
+struct ImageBarrier
+{
+	VkAccessFlags Source;
+	VkAccessFlags Destination;
+	VkImageLayout From;
+	VkImageLayout To;
+	const Image& Img;
+	VkImageSubresourceRange Range;
 };
 
 class CommandBuffer
@@ -46,6 +72,10 @@ public:
 		std::optional<u32> dynamicOffset = std::nullopt);
 
 	void CopyBuffer(const Buffer& from, const Buffer& to, std::span<VkBufferCopy> regions);
+	void CopyBufferToImage(
+		const Buffer& from, const Image& to, VkImageLayout currLayout, std::span<VkBufferImageCopy> regions);
+	void PipelineBarrier(VkPipelineStageFlags source, VkPipelineStageFlags destination, VkDependencyFlags dependency,
+		std::span<MemoryBarrier> memory, std::span<BufferBarrier> buffers, std::span<ImageBarrier> images);
 
 	void Draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance);
 	void DrawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 vertexOffset, u32 firstInstance);

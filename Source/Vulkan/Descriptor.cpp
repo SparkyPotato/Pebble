@@ -15,7 +15,13 @@ DescriptorSet::DescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout layout
 	VkCall(vkAllocateDescriptorSets(Instance::Device(), &info, &m_Set));
 }
 
-DescriptorSet::~DescriptorSet() { vkFreeDescriptorSets(Instance::Device(), m_Pool, 1, &m_Set); }
+DescriptorSet::~DescriptorSet()
+{
+	if (m_Pool)
+	{
+		vkFreeDescriptorSets(Instance::Device(), m_Pool, 1, &m_Set);
+	}
+}
 
 DescriptorSet::DescriptorSet(DescriptorSet&& other)
 {

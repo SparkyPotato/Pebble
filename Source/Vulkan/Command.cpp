@@ -88,6 +88,60 @@ void CommandBuffer::CopyBuffer(const Buffer& from, const Buffer& to, std::span<V
 	vkCmdCopyBuffer(m_Buffer, from.GetHandle(), to.GetHandle(), u32(regions.size()), regions.data());
 }
 
+void CommandBuffer::CopyBufferToImage(
+	const Buffer& from, const Image& to, VkImageLayout currLayout, std::span<VkBufferImageCopy> regions)
+{
+	vkCmdCopyBufferToImage(m_Buffer, from.GetHandle(), to.GetHandle(), currLayout, u32(regions.size()), regions.data());
+}
+
+void CommandBuffer::PipelineBarrier(VkPipelineStageFlags source, VkPipelineStageFlags destination,
+	VkDependencyFlags dependency, std::span<MemoryBarrier> memory, std::span<BufferBarrier> buffers,
+	std::span<ImageBarrier> images)
+{
+	static thread_local std::vector<VkMemoryBarrier> memoryBarriers;
+	static thread_local std::vector<VkBufferMemoryBarrier> bufferBarriers;
+	static thread_local std::vector<VkImageMemoryBarrier> imageBarriers;
+
+	memoryBarriers.clear();
+	bufferBarriers.clear();
+	imageBarriers.clear();
+	memoryBarriers.reserve(memory.size());
+	bufferBarriers.reserve(buffers.size());
+	imageBarriers.reserve(images.size());
+
+	for (const auto& mem : memory)
+	{
+		memoryBarriers.push_back(VkMemoryBarrier{
+			.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER, .srcAccessMask = mem.Source, .dstAccessMask = mem.Destination });
+	}
+	for (const auto& buf : buffers)
+	{
+		bufferBarriers.push_back(VkBufferMemoryBarrier{ .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+			.srcAccessMask = buf.Source,
+			.dstAccessMask = buf.Destination,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.buffer = buf.Buf.GetHandle(),
+			.offset = buf.Offset,
+			.size = buf.Size });
+	}
+	for (const auto& img : images)
+	{
+		imageBarriers.push_back(VkImageMemoryBarrier{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.srcAccessMask = img.Source,
+			.dstAccessMask = img.Destination,
+			.oldLayout = img.From,
+			.newLayout = img.To,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.image = img.Img.GetHandle(),
+			.subresourceRange = img.Range });
+	}
+
+	vkCmdPipelineBarrier(m_Buffer, source, destination, dependency, u32(memoryBarriers.size()), memoryBarriers.data(),
+		u32(bufferBarriers.size()), bufferBarriers.data(), u32(imageBarriers.size()), imageBarriers.data());
+}
+
 void CommandBuffer::Draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance)
 {
 	vkCmdDraw(m_Buffer, vertexCount, instanceCount, firstVertex, firstInstance);
