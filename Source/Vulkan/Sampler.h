@@ -21,6 +21,8 @@ public:
 	Sampler(Sampler&& other);
 	Sampler& operator=(Sampler&& other);
 
+	VkSampler GetHandle() const { return m_Sampler; }
+
 private:
 	VkSampler m_Sampler = VK_NULL_HANDLE;
 };

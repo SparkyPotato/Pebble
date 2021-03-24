@@ -3,13 +3,22 @@
 #include "Instance.h"
 
 class Buffer;
+class ImageView;
 class PipelineLayout;
+class Sampler;
 
 struct BufferUpdate
 {
 	const Buffer& Buffer;
 	u64 Offset;
 	u64 Range;
+};
+
+struct ImageUpdate
+{
+	const ImageView& View;
+	const Sampler& Sampler;
+	VkImageLayout Layout;
 };
 
 class DescriptorSet
@@ -25,6 +34,7 @@ public:
 	DescriptorSet& operator=(DescriptorSet&& other);
 
 	void Update(u32 binding, u32 arrayElement, VkDescriptorType type, std::span<BufferUpdate> buffers);
+	void Update(u32 binding, u32 arrayElement, VkDescriptorType type, std::span<ImageUpdate> images);
 
 	VkDescriptorSet GetHandle() const { return m_Set; }
 

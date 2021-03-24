@@ -7,6 +7,7 @@
 #include "Vulkan/Descriptor.h"
 #include "Vulkan/Framebuffer.h"
 #include "Vulkan/Pipeline.h"
+#include "Vulkan/Sampler.h"
 #include "Vulkan/Sync.h"
 
 class App
@@ -26,6 +27,8 @@ private:
 	Buffer m_VertexBuffer;
 	Buffer m_UniformBuffer;
 	Image m_TriangleImage;
+	ImageView m_TriangleImageView;
+	Sampler m_TriangleSampler;
 	Pipeline m_Pipeline;
 	PipelineLayout m_Layout;
 	RenderPass m_Pass;

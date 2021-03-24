@@ -3,7 +3,9 @@
 #include "Descriptor.h"
 
 #include "Buffer.h"
+#include "Image.h"
 #include "PipelineLayout.h"
+#include "Sampler.h"
 
 DescriptorSet::DescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout layout) : m_Pool(pool)
 {
@@ -59,6 +61,27 @@ void DescriptorSet::Update(u32 binding, u32 arrayElement, VkDescriptorType type,
 		.descriptorCount = u32(bInfos.size()),
 		.descriptorType = type,
 		.pBufferInfo = bInfos.data() };
+	vkUpdateDescriptorSets(Instance::Device(), 1, &info, 0, nullptr);
+}
+
+void DescriptorSet::Update(u32 binding, u32 arrayElement, VkDescriptorType type, std::span<ImageUpdate> images)
+{
+	static thread_local std::vector<VkDescriptorImageInfo> iInfos;
+	iInfos.clear();
+	iInfos.reserve(images.size());
+	for (const auto& img : images)
+	{
+		iInfos.push_back(VkDescriptorImageInfo{
+			.sampler = img.Sampler.GetHandle(), .imageView = img.View.GetHandle(), .imageLayout = img.Layout });
+	}
+
+	VkWriteDescriptorSet info{ .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+		.dstSet = m_Set,
+		.dstBinding = binding,
+		.dstArrayElement = arrayElement,
+		.descriptorCount = u32(iInfos.size()),
+		.descriptorType = type,
+		.pImageInfo = iInfos.data() };
 	vkUpdateDescriptorSets(Instance::Device(), 1, &info, 0, nullptr);
 }
 

@@ -20,7 +20,16 @@ ImageView::ImageView(VkImage vkImage, VkFormat format, VkImageViewType viewType,
 ImageView::ImageView(const Image& image, VkFormat format, VkImageViewType viewType, VkComponentMapping mapping,
 	VkImageSubresourceRange range, VkImageViewCreateFlags flags)
 {
-	ImageView(image.GetHandle(), format, viewType, mapping, range, flags);
+	VkImageViewCreateInfo info{ .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = flags,
+		.image = image.GetHandle(),
+		.viewType = viewType,
+		.format = format,
+		.components = mapping,
+		.subresourceRange = range };
+
+	VkCall(vkCreateImageView(Instance::Device(), &info, nullptr, &m_View));
 }
 
 ImageView::~ImageView() { vkDestroyImageView(Instance::Device(), m_View, nullptr); }

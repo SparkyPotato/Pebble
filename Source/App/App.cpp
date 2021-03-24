@@ -24,6 +24,7 @@ App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 	for (u64 i = 0; i < 4 * 100 * 100; i += 4)
 	{
 		imageData[i] = 255;
+		imageData[i + 1] = 255;
 		imageData[i + 3] = 255;
 	}
 	image.Unmap();
@@ -56,10 +57,24 @@ App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 		0, 0, 0, VkImageSubresourceLayers{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 }, { 0, 0 }, { 100, 100, 1 } } };
 	buf.CopyBufferToImage(image, m_TriangleImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, iCopy);
 
+	ImageBarrier barrier2{ .Source = VK_ACCESS_TRANSFER_WRITE_BIT,
+		.Destination = VK_ACCESS_SHADER_READ_BIT,
+		.From = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		.To = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		.Img = m_TriangleImage,
+		.Range = VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 } };
+	buf.PipelineBarrier(
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, {}, {}, std::span(&barrier2, 1));
+
 	buf.End();
 	CommandBuffer* bufs[] = { &buf };
 	Fence fence;
 	Instance::Submit(bufs, {}, {}, &fence);
+
+	m_TriangleImageView = ImageView(m_TriangleImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_VIEW_TYPE_2D,
+		VkComponentMapping{ VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY,
+			VK_COMPONENT_SWIZZLE_IDENTITY },
+		VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
 	Shader shaders[] = { Shader("../Shaders/Triangle.vert.spv", VK_SHADER_STAGE_VERTEX_BIT),
 		Shader("../Shaders/Triangle.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT) };
@@ -99,6 +114,8 @@ App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 							  | VK_COLOR_COMPONENT_A_BIT } } },
 		DynamicState{ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR }, m_Layout, m_Pass, 0);
 
+	m_TriangleSampler = Sampler(VK_FILTER_LINEAR, VK_FILTER_LINEAR);
+
 	auto generate = [this](u32 w, u32 h) {
 		auto& views = m_MainWindow.GetSwapchain().GetViews();
 		m_MainFramebuffers.reserve(views.size());
@@ -121,6 +138,9 @@ App::App() : m_MainFrameFence(VK_FENCE_CREATE_SIGNALED_BIT)
 
 			BufferUpdate update = { m_UniformBuffer, 0, sizeof(glm::mat4) * 3 };
 			set.Update(0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, std::span(&update, 1));
+
+			ImageUpdate iUpdate = { m_TriangleImageView, m_TriangleSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+			set.Update(1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, std::span(&iUpdate, 1));
 
 			buffer.Begin();
 			VkClearValue values[] = { VkClearColorValue{ 0.f, 0.f, 0.f, 1.f } };
